@@ -349,6 +349,7 @@ const applyReducers = (state, action) => [
   require('../../app/browser/reducers/flashReducer'),
   require('../../app/browser/reducers/sitesReducer'),
   require('../../app/browser/reducers/tabsReducer'),
+  require('../../app/browser/reducers/windowsReducer'),
   require('../../app/browser/reducers/spellCheckReducer'),
   require('../../app/browser/reducers/clipboardReducer'),
   require('../../app/browser/reducers/passwordManagerReducer'),
@@ -383,7 +384,6 @@ const handleAppAction = (action) => {
       // See tabsReducer.js for app state init example
       // TODO(bridiver) - these should be refactored into reducers
       appState = filtering.init(appState, action, appStore)
-      appState = windows.init(appState, action, appStore)
       appState = basicAuth.init(appState, action, appStore)
       appState = webtorrent.init(appState, action, appStore)
       appState = profiles.init(appState, action, appStore)

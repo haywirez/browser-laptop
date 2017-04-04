@@ -26,6 +26,8 @@ const getTabValue = function (tabId) {
     tabValue = tabValue.set('canGoBack', tab.canGoBack())
     tabValue = tabValue.set('canGoForward', tab.canGoForward())
     tabValue = tabValue.set('guestInstanceId', tab.guestInstanceId)
+    tabValue = tabValue.set('partition', tab.session.partition)
+    tabValue = tabValue.set('partitionNumber', getPartitionNumber(tab.session.partition))
     return tabValue.set('tabId', tabId)
   }
 }
@@ -35,6 +37,10 @@ const updateTab = (tabId) => {
   if (tabValue) {
     appActions.tabUpdated(tabValue)
   }
+}
+
+const getPartitionNumber = (partition) => {
+  return partition.split('persist:partition-')[1] || 0
 }
 
 /**
@@ -48,11 +54,11 @@ const getPartition = (createProperties) => {
     partition = createProperties.partition
   } else if (createProperties.isPrivate) {
     partition = 'default'
-  } else if (createProperties.partitionNumber) {
-    partition = `persist:partition-${createProperties.partitionNumber}`
   } else if (createProperties.isPartitioned) {
     partition = `persist:partition-${incrementPartitionNumber()}`
-  } 
+  } else if (createProperties.partitionNumber) {
+    partition = `persist:partition-${createProperties.partitionNumber}`
+  }
 
   return partition
 }
@@ -84,14 +90,24 @@ const api = {
 
       let location = newTab.getURL()
       if (!location || location === '') {
+        console.log('guest instance id ' + newTab.guestInstanceId)
         location = 'about:blank'
       }
 
       const openerTabId = !source.isDestroyed() ? source.getId() : -1
       let newTabValue = getTabValue(newTab.getId())
+
       let index
-      if (newTabValue && newTabValue.get('index') !== -1) {
+      if (newTabValue && parseInt(newTabValue.get('index')) > -1) {
         index = newTabValue.get('index')
+      }
+
+      let windowId
+      if (newTabValue && parseInt(newTabValue.get('windowId')) > -1) {
+        windowId = newTabValue.get('windowId')
+      } else {
+        const hostWebContents = source.hostWebContents || source
+        windowId = hostWebContents.getOwnerBrowserWindow().id
       }
 
       const frameOpts = {
@@ -109,8 +125,7 @@ const api = {
         const windowOpts = makeImmutable(size)
         appActions.newWindow(makeImmutable(frameOpts), windowOpts)
       } else {
-        const hostWebContents = source.hostWebContents || source
-        appActions.newWebContentsAdded(hostWebContents.getOwnerBrowserWindow().id, frameOpts)
+        appActions.newWebContentsAdded(windowId, frameOpts)
       }
     })
 
@@ -135,15 +150,6 @@ const api = {
       tab.once('destroyed', cleanupWebContents.bind(null, tabId))
       tab.once('crashed', cleanupWebContents.bind(null, tabId))
       tab.once('close', cleanupWebContents.bind(null, tabId))
-
-      tab.on('did-detach', function () {
-        const tabValue = getTabValue(tabId)
-        if (tabValue && !tabValue.get('pinned')) {
-          const win = BrowserWindow.fromId(tabValue.get('windowId'))
-          win.setTabIdPendingTransfer(win.id, tabId)
-          appActions.tabDetachedFromWindow(win.id, tabId)
-        }
-      })
 
       tab.on('page-favicon-updated', function (e, favicons) {
         if (favicons && favicons.length > 0) {
@@ -316,18 +322,25 @@ const api = {
     return state
   },
 
-  closeTab: (state, action) => {
+  removeTab: (state, action) => {
     action = makeImmutable(action)
-    const tabId = action.get('tabId')
+    const tabId = action.getIn(['tabValue', 'tabId'])
+    if (tabId) {
+      api.closeTab(tabId)
+      return tabState.removeTab(state, action)
+    }
+    return state
+  },
+
+  closeTab: (tabId) => {
     const tab = api.getWebContents(tabId)
     try {
-      if (!tab.isDestroyed()) {
+      if (tab && !tab.isDestroyed()) {
         tab.close(tab)
       }
     } catch (e) {
       // ignore
     }
-    return tabState.removeTabByTabId(state, tabId)
   },
 
   create: (createProperties, cb = null) => {
@@ -341,10 +354,9 @@ const api = {
     if (isURL(createProperties.url)) {
       createProperties.url = getUrlFromInput(createProperties.url)
     }
-    const partition = getPartition(createProperties)
-    if (partition) {
-      createProperties.partition = partition
-      if (isSessionPartition(partition)) {
+    if (!createProperties.openerTabId) {
+      createProperties.partition = getPartition(createProperties)
+      if (isSessionPartition(createProperties.partition)) {
         createProperties.parent_partition = ''
       }
     }
@@ -370,7 +382,38 @@ const api = {
   },
 
   createTab: (state, action) => {
+    action = makeImmutable(action)
     api.create(action.get('createProperties'))
+    return state
+  },
+
+  moveTo: (state, action) => {
+    action = makeImmutable(action)
+    const tabId = action.get('tabId')
+    const frameOpts = action.get('frameOpts')
+    const browserOpts = action.get('browserOpts') || new Immutable.Map()
+    // positionByMouseCursor: true
+    const windowId = action.get('windowId') || -1
+    const tab = api.getWebContents(tabId)
+    if (tab && !tab.isDestroyed()) {
+      const tabValue = getTabValue(tabId)
+      const guestInstanceId = tabValue && tabValue.get('guestInstanceId')
+      if (guestInstanceId != null) {
+        frameOpts.set('guestInstanceId', guestInstanceId)
+      }
+
+      const currentWindowId = tabValue && tabValue.get('windowId')
+      if (windowId != null && currentWindowId === windowId) {
+        return state
+      }
+      tab.detach(() => {
+        if (windowId == null || windowId === -1) {
+          appActions.newWindow(makeImmutable(frameOpts), browserOpts)
+        } else {
+          appActions.newWebContentsAdded(windowId, frameOpts)
+        }
+      })
+    }
     return state
   },
 

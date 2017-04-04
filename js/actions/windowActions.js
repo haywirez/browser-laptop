@@ -76,31 +76,51 @@ const windowActions = {
     })
   },
 
+  frameDidAttach: function (frameProps) {
+    dispatch({
+      actionType: windowConstants.WINDOW_FRAME_DID_ATTACH,
+      frameProps
+    })
+  },
+
   /**
    * Dispatches a message to set the frame tab id
    * @param {Object} frameProps - The frame properties
    * @param {Number} tabId - the tab id to set
    * @param {Number} guestInstanceId - the guest instance id to set
    */
-  setFrameTabId: function (frameProps, tabId, guestInstanceId) {
+  setFrameTabId: function (frameProps, tabId) {
     dispatch({
       actionType: windowConstants.WINDOW_SET_FRAME_TAB_ID,
       frameProps,
-      tabId,
+      tabId
+    })
+  },
+
+  /**
+   * Dispatches a message to set the frame tab id
+   * @param {Object} frameProps - The frame properties
+   * @param {Number} tabId - the tab id to set
+   * @param {Number} guestInstanceId - the guest instance id to set
+   */
+  setFrameGuestInstanceId: function (frameProps, guestInstanceId) {
+    dispatch({
+      actionType: windowConstants.WINDOW_SET_FRAME_GUEST_INSTANCE_ID,
+      frameProps,
       guestInstanceId
     })
   },
 
   /**
-   * Dispatches a message to pin a tab
+   * Dispatches a message when tab data changes
    * @param {Object} frameProps - The frame properties
-   * @param {boolean} pinned - true if pinned, otherwise false
+   * @param {Object} tabData - the tab properties
    */
-  framePinned: function (frameProps, pinned) {
+  tabDataChanged: function (frameProps, tabData) {
     dispatch({
-      actionType: windowConstants.WINDOW_FRAME_PINNED,
+      actionType: windowConstants.WINDOW_TAB_DATA_CHANGED,
       frameProps,
-      pinned
+      tabData
     })
   },
 
@@ -128,21 +148,6 @@ const windowActions = {
     dispatch({
       actionType: windowConstants.WINDOW_SET_NAVBAR_INPUT,
       location
-    })
-  },
-
-  /**
-   * Dispatches a message to the store to set the current frame's title.
-   * This should be called in response to the webview encountering a `<title>` tag.
-   *
-   * @param {Object} frameProps - The frame properties to modify
-   * @param {string} title - The title to set for the frame
-   */
-  setFrameTitle: function (frameProps, title) {
-    dispatch({
-      actionType: windowConstants.WINDOW_SET_FRAME_TITLE,
-      frameProps,
-      title
     })
   },
 
@@ -258,6 +263,7 @@ const windowActions = {
     // If there is at least 1 pinned frame don't close the window until subsequent
     // close attempts
     if (nonPinnedFrames.size > 1 || pinnedFrames.size > 0) {
+      appActions.tabClosed({tabId: frameProps.get('tabId')})
       dispatch({
         actionType: windowConstants.WINDOW_CLOSE_FRAME,
         frameProps

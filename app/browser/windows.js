@@ -7,12 +7,17 @@ const appActions = require('../../js/actions/appActions')
 const appUrlUtil = require('../../js/lib/appUrlUtil')
 const debounce = require('../../js/lib/debounce')
 const {getSetting} = require('../../js/settings')
+const {getBraveExtIndexHTML} = require('../../js/lib/appUrlUtil')
 const locale = require('../locale')
 const LocalShortcuts = require('../localShortcuts')
-const { makeImmutable } = require('../common/state/immutableUtil')
+const {makeImmutable, isMap} = require('../common/state/immutableUtil')
+const {getPinnedTabsByWindowId} = require('../common/state/tabState')
+const {siteSort} = require('../../js/state/siteUtil')
 const messages = require('../../js/constants/messages')
 const settings = require('../../js/constants/settings')
+const siteTags = require('../../js/constants/siteTags')
 const windowState = require('../common/state/windowState')
+const Immutable = require('immutable')
 
 // TODO(bridiver) - set window uuid
 let currentWindows = {}
@@ -57,26 +62,82 @@ const updateWindow = (windowId) => {
   }
 }
 
+const siteProps = (site) => {
+  return Immutable.fromJS({
+    location: site.get('location'),
+    partitionNumber: site.get('partitionNumber') || 0
+  })
+}
+
+const updatePinnedTabs = (win) => {
+  const appStore = require('../../js/stores/appStore')
+  const state = appStore.getState()
+  const windowId = win.id
+
+  // TODO
+  // if (!this.props.includePinnedSites) {
+  //   return
+  // }
+  // TODO check window disposition
+  const pinnedSites = state.get('sites').toList().filter((site) =>
+    site.get('tags').includes(siteTags.PINNED)).map((site) => siteProps(site))
+  const pinnedTabs = getPinnedTabsByWindowId(state, windowId)
+
+  pinnedTabs.forEach((tab) => {
+    const site = pinnedSites.find((site) => {
+      return tab.get('url') === site.get('location') &&
+        (tab.get('partitionNumber') || 0) === (site.get('partitionNumber') || 0)
+    })
+    if (site) {
+      win.__alreadyPinnedSites = win.__alreadyPinnedSites.add(site)
+    }
+  })
+
+  const sitesToAdd = pinnedSites.filter((site) =>
+    !win.__alreadyPinnedSites.find((pinned) => pinned.equals(site)))
+  const sitesToClose = win.__alreadyPinnedSites.filter((pinned) =>
+    !pinnedSites.find((site) => pinned.equals(site)))
+
+  console.log('already pinned', win.__alreadyPinnedSites.toJS())
+  console.log('add', sitesToAdd.toJS())
+  console.log('remove', sitesToClose.toJS())
+
+  sitesToAdd.sort(siteSort).forEach((site) => {
+    appActions.createTabRequested({
+      url: site.get('location'),
+      partitionNumber: site.get('partitionNumber'),
+      pinned: true,
+      windowId
+    })
+  })
+
+  const tabsToClose = pinnedTabs.filter((tab) =>
+      sitesToClose.find((site) =>
+          tab.get('url') === site.get('location') &&
+          (tab.get('partitionNumber') || 0) === (site.get('partitionNumber') || 0)))
+  tabsToClose.forEach((tab) => {
+    win.__alreadyPinnedSites = win.__alreadyPinnedSites.remove(site)
+    appActions.tabClosed(tab)
+  })
+}
+
+
 const api = {
   init: (state, action) => {
+    process.on('chrome-tabs-updated', (tabId, changeInfo) => {
+      if (changeInfo.pinned) {
+        for (let windowId in currentWindows) {
+          if (currentWindows[windowId].__ready) {
+            updatePinnedTabs(currentWindows[windowId])
+          }
+        }
+      }
+    })
+
     app.on('browser-window-created', function (event, win) {
       let windowId = -1
-      const initialPinnedTabs = state.get('pinnedTabs')
       const updateWindowMove = debounce(updateWindow, 100)
       const updateWindowDebounce = debounce(updateWindow, 5)
-
-      win.once('show', () => {
-        if (BrowserWindow.getAllWindows().length === 1 && initialPinnedTabs) {
-          initialPinnedTabs
-            .forEach((tab) => {
-              appActions.createTabRequested({
-                url: tab.get('url'),
-                windowId,
-                partition: tab.get('partition')
-              })
-            })
-        }
-      })
 
       win.once('initialized', () => {
         windowId = win.id
@@ -197,6 +258,15 @@ const api = {
     //   // restore window
     // })
     return state
+  },
+
+  windowReady: (windowId) => {
+    const win = currentWindows[windowId]
+    if (win && !win.isDestroyed()) {
+      win.__alreadyPinnedSites = new Immutable.Set()
+      updatePinnedTabs(win)
+      win.__ready = true
+    }
   },
 
   closeWindow: (state, action) => {
