@@ -353,6 +353,13 @@ class Frame extends ImmutableComponent {
   }
 
   componentDidMount () {
+    appStoreRenderer.addChangeListener(() => {
+      if (!this.frame.isEmpty() && this.tab && !this.tab.delete('frame').equals(this.lastTab)) {
+        windowActions.tabDataChanged(this.frame, this.tab)
+      }
+      this.lastTab = this.tab && this.tab.delete('frame')
+    })
+
     if (this.props.isActive) {
       windowActions.setActiveFrame(this.frame)
     }
@@ -409,15 +416,10 @@ class Frame extends ImmutableComponent {
       this.handleShortcut()
     }
 
-    if (!this.frame.isEmpty() && this.tab && !this.tab.delete('frame').equals(this.lastTab)) {
-      windowActions.tabDataChanged(this.frame, this.tab)
-    }
-
     if (!this.frame.isEmpty() && !this.frame.delete('lastAccessedTime').equals(this.lastFrame)) {
       appActions.frameChanged(this.frame)
     }
 
-    this.lastTab = this.tab && this.tab.delete('frame')
     this.lastFrame = this.frame.delete('lastAccessedTime')
 
     const cb = () => {

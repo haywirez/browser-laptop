@@ -98,10 +98,6 @@ const updatePinnedTabs = (win) => {
   const sitesToClose = win.__alreadyPinnedSites.filter((pinned) =>
     !pinnedSites.find((site) => pinned.equals(site)))
 
-  console.log('already pinned', win.__alreadyPinnedSites.toJS())
-  console.log('add', sitesToAdd.toJS())
-  console.log('remove', sitesToClose.toJS())
-
   sitesToAdd.sort(siteSort).forEach((site) => {
     appActions.createTabRequested({
       url: site.get('location'),
@@ -111,21 +107,21 @@ const updatePinnedTabs = (win) => {
     })
   })
 
-  const tabsToClose = pinnedTabs.filter((tab) =>
-      sitesToClose.find((site) =>
-          tab.get('url') === site.get('location') &&
-          (tab.get('partitionNumber') || 0) === (site.get('partitionNumber') || 0)))
-  tabsToClose.forEach((tab) => {
-    win.__alreadyPinnedSites = win.__alreadyPinnedSites.remove(site)
-    appActions.tabClosed(tab)
+  const tabsToClose = pinnedTabs.forEach((tab) => {
+    const site = sitesToClose.find((site) =>
+        tab.get('url') === site.get('location') &&
+        (tab.get('partitionNumber') || 0) === (site.get('partitionNumber') || 0))
+    if (site) {
+      win.__alreadyPinnedSites = win.__alreadyPinnedSites.remove(site)
+      appActions.tabClosed(tab)
+    }
   })
 }
-
 
 const api = {
   init: (state, action) => {
     process.on('chrome-tabs-updated', (tabId, changeInfo) => {
-      if (changeInfo.pinned) {
+      if (changeInfo.pinned != null) {
         for (let windowId in currentWindows) {
           if (currentWindows[windowId].__ready) {
             updatePinnedTabs(currentWindows[windowId])
