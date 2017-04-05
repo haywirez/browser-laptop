@@ -81,14 +81,11 @@ const updatePinnedTabs = (win) => {
     site.get('tags').includes(siteTags.PINNED)).map((site) => siteProps(site))
   const pinnedTabs = getPinnedTabsByWindowId(state, windowId)
 
-  pinnedTabs.forEach((tab) => {
-    const site = pinnedSites.find((site) => {
-      return tab.get('url') === site.get('location') &&
-        (tab.get('partitionNumber') || 0) === (site.get('partitionNumber') || 0)
-    })
-    if (site) {
-      win.__alreadyPinnedSites = win.__alreadyPinnedSites.add(site)
-    }
+  pinnedSites.filter((site) =>
+    pinnedTabs.find((tab) =>
+      tab.get('url') === site.get('location') &&
+      (tab.get('partitionNumber') || 0) === (site.get('partitionNumber') || 0))).forEach((site) => {
+    win.__alreadyPinnedSites = win.__alreadyPinnedSites.add(site)
   })
 
   const sitesToAdd = pinnedSites.filter((site) =>
@@ -111,7 +108,7 @@ const updatePinnedTabs = (win) => {
         tab.get('url') === site.get('location') &&
         (tab.get('partitionNumber') || 0) === (site.get('partitionNumber') || 0))
       if (tab) {
-        appActions.tabClosed(tab)
+        appActions.tabClosed(tab, true)
       }
       win.__alreadyPinnedSites.remove(site)
     })

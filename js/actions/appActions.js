@@ -175,11 +175,13 @@ const appActions = {
   /**
    * Closes an open tab
    * @param {number} tabId
+   * @param {boolean} force closing the tab
    */
-  tabClosed: function (tabValue) {
+  tabClosed: function (tabValue, forceClose = false) {
     AppDispatcher.dispatch({
       actionType: appConstants.APP_TAB_CLOSED,
-      tabValue
+      tabValue,
+      forceClose
     })
   },
 

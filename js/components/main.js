@@ -682,8 +682,8 @@ class Main extends ImmutableComponent {
     return siteSettings.activeSettings(settings, this.props.appState, appConfig).noScript === true
   }
 
-  onCloseFrame (activeFrameProps) {
-    windowActions.closeFrame(frameStateUtil.getFrames(this.props.windowState), activeFrameProps, false)
+  onCloseFrame (activeFrameProps, forceClose = false) {
+    windowActions.closeFrame(frameStateUtil.getFrames(this.props.windowState), activeFrameProps, forceClose)
   }
 
   onDragOver (e) {

@@ -716,7 +716,7 @@ class Frame extends ImmutableComponent {
       if (this.frame.isEmpty()) {
         return
       }
-      this.props.onCloseFrame(this.frame)
+      this.props.onCloseFrame(this.frame, true)
     })
     this.webview.addEventListener('close', () => {
       if (this.frame.isEmpty()) {

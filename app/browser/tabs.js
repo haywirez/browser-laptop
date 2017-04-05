@@ -324,18 +324,23 @@ const api = {
   removeTab: (state, action) => {
     action = makeImmutable(action)
     const tabId = action.getIn(['tabValue', 'tabId'])
+    const forceClose = action.get('forceClose')
     if (tabId) {
-      api.closeTab(tabId)
+      api.closeTab(tabId, forceClose)
       return tabState.removeTab(state, action)
     }
     return state
   },
 
-  closeTab: (tabId) => {
+  closeTab: (tabId, forceClose) => {
     const tab = api.getWebContents(tabId)
     try {
       if (tab && !tab.isDestroyed()) {
-        tab.close(tab)
+        if (forceClose) {
+          tab.forceClose()
+        } else {
+          tab.close(tab)
+        }
       }
     } catch (e) {
       // ignore
