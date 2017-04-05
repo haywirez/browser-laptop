@@ -105,15 +105,16 @@ const updatePinnedTabs = (win) => {
     })
   })
 
-  const tabsToClose = pinnedTabs.forEach((tab) => {
-    const site = sitesToClose.find((site) =>
+  sitesToClose
+    .forEach((site) => {
+      const tab = pinnedTabs.find((tab) =>
         tab.get('url') === site.get('location') &&
         (tab.get('partitionNumber') || 0) === (site.get('partitionNumber') || 0))
-    if (site) {
-      win.__alreadyPinnedSites = win.__alreadyPinnedSites.remove(site)
-      appActions.tabClosed(tab)
-    }
-  })
+      if (tab) {
+        appActions.tabClosed(tab)
+      }
+      win.__alreadyPinnedSites.remove(site)
+    })
 }
 
 const api = {
