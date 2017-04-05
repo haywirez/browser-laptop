@@ -70,15 +70,13 @@ const siteProps = (site) => {
 }
 
 const updatePinnedTabs = (win) => {
+  if (win.webContents.browserWindowOptions.disposition === 'new-popup') {
+    return
+  }
+
   const appStore = require('../../js/stores/appStore')
   const state = appStore.getState()
   const windowId = win.id
-
-  // TODO
-  // if (!this.props.includePinnedSites) {
-  //   return
-  // }
-  // TODO check window disposition
   const pinnedSites = state.get('sites').toList().filter((site) =>
     site.get('tags').includes(siteTags.PINNED)).map((site) => siteProps(site))
   const pinnedTabs = getPinnedTabsByWindowId(state, windowId)

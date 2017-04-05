@@ -195,7 +195,7 @@ const createWindow = (action) => {
   const startupSetting = getSetting(settings.STARTUP_MODE)
 
   setImmediate(() => {
-    let mainWindow = new BrowserWindow(Object.assign(windowProps, browserOpts))
+    let mainWindow = new BrowserWindow(Object.assign(windowProps, browserOpts, {disposition: frameOpts.disposition}))
 
     // initialize frames state
     let frames = []
