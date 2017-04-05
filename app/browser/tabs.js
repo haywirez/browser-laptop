@@ -90,7 +90,6 @@ const api = {
 
       let location = newTab.getURL()
       if (!location || location === '') {
-        console.log('guest instance id ' + newTab.guestInstanceId)
         location = 'about:blank'
       }
 
